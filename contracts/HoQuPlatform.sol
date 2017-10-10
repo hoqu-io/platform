@@ -158,10 +158,13 @@ contract HoQuPlatform {
         
         require (offer.owner == msg.sender && offer.status == STATUS_ACTIVE);
 
-        uint256 commission = offer.cost.mul(commission).div(1 szabo);
-        uint256 amount = offer.cost.sub(commission);
+        // all amounts are in weis
+        uint256 commissionAmount = offer.cost.mul(commission).mul(1 szabo).div(1 ether);
+        require(commissionAmount > 0); // assert instead of require?
+        uint256 amount = offer.cost.sub(commissionAmount);
+        // // todo: check allowance first
         token.transferFrom(offer.owner, this, offer.cost);
-        token.transfer(config.commissionWallet(), commission);
+        token.transfer(config.commissionWallet(), commissionAmount);
         token.transfer(lead.owner, amount);
 
         leads[id].price = amount;
