@@ -1,26 +1,16 @@
-var HoQuPlatformConfig = artifacts.require("./HoQuPlatformConfig.sol");
+const HoQuPlatformConfig = artifacts.require("./HoQuPlatformConfig.sol");
 
 contract('HoQuPlatformConfig', function(accounts) {
-  it("should have correct wallet addresses", function () {
-    var config;
+  it("should have correct wallet addresses", async () => {
+    const expectedSystemOwner = accounts[1];
+    const expectedCommissionWallet = accounts[2];
 
-    var expectedSystemOwner = accounts[1];
-    var expectedCommissionWallet = accounts[2];
+    const config = await HoQuPlatformConfig.deployed();
 
-    var actualSystemOwner;
-    var actualCommissionWallet;
+    const actualSystemOwner = await config.systemOwner();
+    const actualCommissionWallet = await config.commissionWallet();
 
-    return HoQuPlatformConfig.deployed().then(function (instance) {
-      config = instance;
-      return config.systemOwner();
-    }).then(function(systemOwner) {
-      actualSystemOwner = systemOwner;
-      return config.commissionWallet();
-    }).then(function (commissionWallet) {
-      actualCommissionWallet = commissionWallet;
-
-      assert.equal(actualSystemOwner, expectedSystemOwner, "Incorrect system owner");
-      assert.equal(actualCommissionWallet, expectedCommissionWallet, "Incorrect commission wallet");
-    });
+    assert.equal(actualSystemOwner, expectedSystemOwner, "Incorrect system owner");
+    assert.equal(actualCommissionWallet, expectedCommissionWallet, "Incorrect commission wallet");
   })
 });
