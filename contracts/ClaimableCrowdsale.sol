@@ -1,7 +1,7 @@
 pragma solidity ^0.4.11;
 
-import '/zeppelin-solidity/contracts/math/SafeMath.sol';
-import '/zeppelin-solidity/contracts/lifecycle/Pausable.sol';
+import 'zeppelin-solidity/contracts/math/SafeMath.sol';
+import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 import './HoQuToken.sol';
 
 /**
