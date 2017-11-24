@@ -36,49 +36,49 @@ contract ChangeableRateCrowdsale is ClaimableCrowdsale {
         uint256 _maxTokensAmount,
         uint256 _endDate
     ) ClaimableCrowdsale(
-         _tokenAddress,
-         _bankAddress,
-         _beneficiaryAddress,
-         _tokenRate,
-         _minBuyableAmount,
-         _maxTokensAmount,
-         _endDate
+        _tokenAddress,
+        _bankAddress,
+        _beneficiaryAddress,
+        _tokenRate,
+        _minBuyableAmount,
+        _maxTokensAmount,
+        _endDate
     ) {
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 13777764 ether,
-            rate: 6000
+            amount : 13777764 ether,
+            rate : 6000
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 27555528 ether,
-            rate: 5750
+            amount : 27555528 ether,
+            rate : 5750
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 41333292 ether,
-            rate: 5650
+            amount : 41333292 ether,
+            rate : 5650
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 55111056 ether,
-            rate: 5550
+            amount : 55111056 ether,
+            rate : 5550
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 68888820 ether,
-            rate: 5450
+            amount : 68888820 ether,
+            rate : 5450
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 82666584 ether,
-            rate: 5350
+            amount : 82666584 ether,
+            rate : 5350
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 96444348 ether,
-            rate: 5250
+            amount : 96444348 ether,
+            rate : 5250
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 110222112 ether,
-            rate: 5150
+            amount : 110222112 ether,
+            rate : 5150
         });
         rateBoundaries[numOfBoundaries++] = RateBoundary({
-            amount: 137777640 ether,
-            rate: 5000
+            amount : 137777640 ether,
+            rate : 5000
         });
         nextBoundaryAmount = rateBoundaries[currentBoundary].amount;
     }
@@ -91,7 +91,8 @@ contract ChangeableRateCrowdsale is ClaimableCrowdsale {
             currentBoundary++;
             if (currentBoundary >= numOfBoundaries) {
                 nextBoundaryAmount = maxTokensAmount;
-            } else {
+            }
+            else {
                 nextBoundaryAmount = rateBoundaries[currentBoundary].amount;
                 tokenRate = rateBoundaries[currentBoundary].rate;
             }

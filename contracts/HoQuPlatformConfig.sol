@@ -4,8 +4,8 @@ import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract HoQuPlatformConfig is Ownable {
 
-	address public systemOwner;
-	address public commissionWallet;
+    address public systemOwner;
+    address public commissionWallet;
 
     // HoQu platform commission in ether
     uint256 public commission = 0.005 ether;
