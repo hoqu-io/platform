@@ -30,6 +30,7 @@ contract HoQuPlatform {
     }
 
 	struct Company {
+        uint createdAt;
 		uint ownerId;
         address ownerAddress;
 		string name;
@@ -48,9 +49,11 @@ contract HoQuPlatform {
 	}
 
     struct Tracker {
+        uint createdAt;
         address ownerAddress;
         string name;
         string dataUrl;
+        Status status;
     }
 
 	struct Lead {
@@ -62,7 +65,9 @@ contract HoQuPlatform {
 		string dataUrl;
 		string meta;
 		uint256 price;
-        mapping (address => uint32) intermediaries;
+        mapping (uint8 => address) intermediaryAddresses;
+        mapping (uint8 => uint32) intermediaryPercents;
+        uint8 numOfIntermediaries;
 		Status status;
 	}
 
@@ -80,6 +85,14 @@ contract HoQuPlatform {
     event UserPubKeyUpdated(address indexed ownerAddress);
     event UserKycReportAdded(address indexed ownerAddress, KycLevel kycLevel);
     event UserStatusChanged(address indexed ownerAddress, Status status);
+    event CompanyRegistered(address indexed ownerAddress, uint32 id, string name);
+    event CompanyStatusChanged(address indexed ownerAddress, Status status);
+    event TrackerRegistered(address indexed ownerAddress, uint32 id, string name);
+    event TrackerStatusChanged(address indexed ownerAddress, Status status);
+    event OfferAdded(address indexed ownerAddress, uint32 id, string name);
+    event OfferStatusChanged(address indexed ownerAddress, Status status);
+    event LeadAdded(address indexed ownerAddress, uint32 id, uint256 price);
+    event LeadStatusChanged(address indexed ownerAddress, Status status);
 
     modifier onlyOwner() {
         require(msg.sender == config.systemOwner());
@@ -180,5 +193,140 @@ contract HoQuPlatform {
             users[id].kycReports[num].kycLevel,
             users[id].kycReports[num].dataUrl
         );
+    }
+
+    function registerCompany(uint32 id, uint32 ownerId, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
+        require (companies[id].status == Status.NotExists);
+        require (users[ownerId].status != Status.NotExists);
+        
+        bool userAddressExists = false;
+        for (uint8 i = 0; i < users[ownerId].numOfAddresses; i++) {
+            if (users[ownerId].addresses[i] == ownerAddress) {
+                userAddressExists = true;
+            }
+        }
+        require (userAddressExists);
+        
+        companies[id] = Company({
+            createdAt: now,
+            ownerId: ownerId,
+            ownerAddress: ownerAddress,
+            name: name,
+            dataUrl: dataUrl,
+            status: Status.Created
+        });
+
+        CompanyRegistered(ownerAddress, id, name);
+
+        return true;
+    }
+    
+    function setCompanyStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+        require (companies[id].status != Status.NotExists);
+
+        companies[id].status = status;
+
+        CompanyStatusChanged(companies[id].ownerAddress, status);
+
+        return true;
+    }
+    
+    function registerTracker(uint32 id, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
+        require (trackers[id].status == Status.NotExists);
+
+        trackers[id] = Tracker({
+            createdAt: now,
+            ownerAddress: ownerAddress,
+            name: name,
+            dataUrl: dataUrl,
+            status: Status.Created
+        });
+
+        TrackerRegistered(ownerAddress, id, name);
+
+        return true;
+    }
+    
+    function setTrackerStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+        require (trackers[id].status != Status.NotExists);
+
+        trackers[id].status = status;
+
+        TrackerStatusChanged(trackers[id].ownerAddress, status);
+
+        return true;
+    }
+
+    function addOffer(uint32 id, uint32 companyId, address payerAddress, string name, string dataUrl, uint256 cost) public onlyOwner returns (bool) {
+        require (offers[id].status == Status.NotExists);
+        require (companies[companyId].status != Status.NotExists);
+        
+        offers[id] = Offer({
+            createdAt: now,
+            companyId: companyId,
+            payerAddress: payerAddress,
+            name: name,
+            dataUrl: dataUrl,
+            cost: cost,
+            status: Status.Created
+        });
+
+        OfferAdded(payerAddress, id, name);
+
+        return true;
+    }
+
+    function setOfferStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+        require (offers[id].status != Status.NotExists);
+
+        offers[id].status = status;
+
+        OfferStatusChanged(offers[id].payerAddress, status);
+
+        return true;
+    }
+    
+    function addLead(uint32 id, uint32 ownerId, uint32 trackerId, uint32 offerId, address beneficiaryAddress, string meta, string dataUrl, uint256 price) public onlyOwner returns (bool) {
+        require (leads[id].status == Status.NotExists);
+        require (users[ownerId].status != Status.NotExists);
+        require (trackers[trackerId].status != Status.NotExists);
+        require (offers[offerId].status != Status.NotExists);
+
+        leads[id] = Lead({
+            createdAt: now,
+            trackerId: trackerId,
+            ownerId: ownerId,
+            offerId: offerId,
+            beneficiaryAddress: beneficiaryAddress,
+            meta: meta,
+            dataUrl: dataUrl,
+            price: price,
+            numOfIntermediaries: 0,
+            status: Status.Created
+        });
+
+        LeadAdded(beneficiaryAddress, id, price);
+
+        return true;
+    }
+
+    function addLeadIntermediary(uint32 id, address intermediaryAddress, uint32 percent) public onlyOwner returns (bool) {
+        require (leads[id].status != Status.NotExists);
+
+        leads[id].intermediaryAddresses[leads[id].numOfIntermediaries] = intermediaryAddress;
+        leads[id].intermediaryPercents[leads[id].numOfIntermediaries] = percent;
+        leads[id].numOfIntermediaries++;
+
+        return true;
+    }
+
+    function setLeadStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+        require (leads[id].status != Status.NotExists);
+
+        leads[id].status = status;
+
+        LeadStatusChanged(leads[id].beneficiaryAddress, status);
+
+        return true;
     }
 }
