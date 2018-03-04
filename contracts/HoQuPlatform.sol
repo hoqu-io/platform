@@ -7,12 +7,12 @@ import './HoQuToken.sol';
 contract HoQuPlatform {
     using SafeMath for uint256;
 
-    enum Status {NotExists, Created, Pending, Active, Declined}
+    enum Status {NotExists, Created, Pending, Active, Done, Declined}
     enum KycLevel {Tier0, Tier1, Tier2, Tier3, Tier4}
 
     struct KycReport {
         uint createdAt;
-        uint32 reportId;
+        string meta;
         KycLevel kycLevel;
         string dataUrl;
     }
@@ -31,7 +31,7 @@ contract HoQuPlatform {
 
     struct Company {
         uint createdAt;
-        uint ownerId;
+        bytes16 ownerId;
         address ownerAddress;
         string name;
         string dataUrl;
@@ -40,7 +40,7 @@ contract HoQuPlatform {
 
     struct Offer {
         uint createdAt;
-        uint companyId;
+        bytes16 companyId;
         address payerAddress;
         string name;
         string dataUrl;
@@ -56,12 +56,18 @@ contract HoQuPlatform {
         Status status;
     }
 
+    struct Ad {
+        uint createdAt;
+        bytes16 ownerId;
+        address beneficiaryAddress;
+        bytes16 offerId;
+        Status status;
+    }
+
     struct Lead {
         uint createdAt;
-        uint trackerId;
-        uint ownerId;
-        address beneficiaryAddress;
-        uint offerId;
+        bytes16 trackerId;
+        bytes16 adId;
         string dataUrl;
         string meta;
         uint256 price;
@@ -74,25 +80,29 @@ contract HoQuPlatform {
     HoQuPlatformConfig public config;
     HoQuToken public token;
 
-    mapping (uint32 => User) public users;
-    mapping (uint32 => Company) public companies;
-    mapping (uint32 => Offer) public offers;
-    mapping (uint32 => Tracker) public trackers;
-    mapping (uint32 => Lead) public leads;
+    mapping (bytes16 => User) public users;
+    mapping (bytes16 => Company) public companies;
+    mapping (bytes16 => Offer) public offers;
+    mapping (bytes16 => Tracker) public trackers;
+    mapping (bytes16 => Ad) public ads;
+    mapping (bytes16 => Lead) public leads;
 
-    event UserRegistered(address indexed ownerAddress, uint32 id, string role);
+    event UserRegistered(address indexed ownerAddress, bytes16 id, string role);
     event UserAddressAdded(address indexed ownerAddress, address additionalAddress);
     event UserPubKeyUpdated(address indexed ownerAddress);
     event UserKycReportAdded(address indexed ownerAddress, KycLevel kycLevel);
-    event UserStatusChanged(address indexed ownerAddress, Status status);
-    event CompanyRegistered(address indexed ownerAddress, uint32 id, string name);
-    event CompanyStatusChanged(address indexed ownerAddress, Status status);
-    event TrackerRegistered(address indexed ownerAddress, uint32 id, string name);
-    event TrackerStatusChanged(address indexed ownerAddress, Status status);
-    event OfferAdded(address indexed ownerAddress, uint32 id, string name);
-    event OfferStatusChanged(address indexed ownerAddress, Status status);
-    event LeadAdded(address indexed ownerAddress, uint32 id, uint256 price);
-    event LeadStatusChanged(address indexed ownerAddress, Status status);
+    event UserStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event CompanyRegistered(address indexed ownerAddress, bytes16 id, string name);
+    event CompanyStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event TrackerRegistered(address indexed ownerAddress, bytes16 id, string name);
+    event TrackerStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event OfferAdded(address indexed ownerAddress, bytes16 id, string name);
+    event OfferStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event AdAdded(address indexed ownerAddress, bytes16 id);
+    event AdStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event LeadAdded(address indexed ownerAddress, bytes16 id, uint256 price);
+    event LeadStatusChanged(address indexed ownerAddress, bytes16 id, Status status);
+    event LeadSold(address indexed ownerAddress, bytes16 id, uint256 ownerAmount);
 
     modifier onlyOwner() {
         require(msg.sender == config.systemOwner());
@@ -111,7 +121,7 @@ contract HoQuPlatform {
         config = HoQuPlatformConfig(configAddress);
     }
 
-    function registerUser(uint32 id, string role, address ownerAddress, string pubKey) public onlyOwner returns (bool) {
+    function registerUser(bytes16 id, string role, address ownerAddress, string pubKey) public onlyOwner returns (bool) {
         require(users[id].status == Status.NotExists);
 
         users[id] = User({
@@ -130,7 +140,7 @@ contract HoQuPlatform {
         return true;
     }
 
-    function addUserAddress(uint32 id, address ownerAddress) public onlyOwner returns (bool) {
+    function addUserAddress(bytes16 id, address ownerAddress) public onlyOwner returns (bool) {
         require(users[id].status != Status.NotExists);
 
         users[id].addresses[users[id].numOfAddresses] = ownerAddress;
@@ -141,7 +151,7 @@ contract HoQuPlatform {
         return true;
     }
 
-    function updateUserPubKey(uint32 id, string pubKey) public onlyOwner returns (bool) {
+    function updateUserPubKey(bytes16 id, string pubKey) public onlyOwner returns (bool) {
         require(users[id].status != Status.NotExists);
 
         users[id].pubKey = pubKey;
@@ -151,12 +161,12 @@ contract HoQuPlatform {
         return true;
     }
 
-    function addUserKycReport(uint32 id, uint32 reportId, KycLevel kycLevel, string dataUrl) public onlyOwner returns (bool) {
+    function addUserKycReport(bytes16 id, string meta, KycLevel kycLevel, string dataUrl) public onlyOwner returns (bool) {
         require(users[id].status != Status.NotExists);
 
         users[id].kycReports[users[id].numOfKycReports] = KycReport({
             createdAt : now,
-            reportId : reportId,
+            meta : meta,
             kycLevel : kycLevel,
             dataUrl : dataUrl
         });
@@ -168,34 +178,34 @@ contract HoQuPlatform {
         return true;
     }
 
-    function setUserStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+    function setUserStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
         require(users[id].status != Status.NotExists);
 
         users[id].status = status;
 
-        UserStatusChanged(users[id].addresses[0], status);
+        UserStatusChanged(users[id].addresses[0], id, status);
 
         return true;
     }
 
-    function getUserAddress(uint32 id, uint8 num) public constant returns (address) {
+    function getUserAddress(bytes16 id, uint8 num) public constant returns (address) {
         require(users[id].status != Status.NotExists);
 
         return users[id].addresses[num];
     }
 
-    function getUserKycReport(uint32 id, uint16 num) public constant returns (uint, uint32, KycLevel, string) {
+    function getUserKycReport(bytes16 id, uint16 num) public constant returns (uint, string, KycLevel, string) {
         require(users[id].status != Status.NotExists);
 
         return (
-            users[id].kycReports[num].createdAt,
-            users[id].kycReports[num].reportId,
-            users[id].kycReports[num].kycLevel,
-            users[id].kycReports[num].dataUrl
+        users[id].kycReports[num].createdAt,
+        users[id].kycReports[num].meta,
+        users[id].kycReports[num].kycLevel,
+        users[id].kycReports[num].dataUrl
         );
     }
 
-    function registerCompany(uint32 id, uint32 ownerId, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
+    function registerCompany(bytes16 id, bytes16 ownerId, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
         require(companies[id].status == Status.NotExists);
         require(users[ownerId].status != Status.NotExists);
 
@@ -221,17 +231,17 @@ contract HoQuPlatform {
         return true;
     }
 
-    function setCompanyStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+    function setCompanyStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
         require(companies[id].status != Status.NotExists);
 
         companies[id].status = status;
 
-        CompanyStatusChanged(companies[id].ownerAddress, status);
+        CompanyStatusChanged(companies[id].ownerAddress, id, status);
 
         return true;
     }
 
-    function registerTracker(uint32 id, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
+    function registerTracker(bytes16 id, address ownerAddress, string name, string dataUrl) public onlyOwner returns (bool) {
         require(trackers[id].status == Status.NotExists);
 
         trackers[id] = Tracker({
@@ -247,17 +257,17 @@ contract HoQuPlatform {
         return true;
     }
 
-    function setTrackerStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+    function setTrackerStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
         require(trackers[id].status != Status.NotExists);
 
         trackers[id].status = status;
 
-        TrackerStatusChanged(trackers[id].ownerAddress, status);
+        TrackerStatusChanged(trackers[id].ownerAddress, id, status);
 
         return true;
     }
 
-    function addOffer(uint32 id, uint32 companyId, address payerAddress, string name, string dataUrl, uint256 cost) public onlyOwner returns (bool) {
+    function addOffer(bytes16 id, bytes16 companyId, address payerAddress, string name, string dataUrl, uint256 cost) public onlyOwner returns (bool) {
         require(offers[id].status == Status.NotExists);
         require(companies[companyId].status != Status.NotExists);
 
@@ -276,28 +286,53 @@ contract HoQuPlatform {
         return true;
     }
 
-    function setOfferStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+    function setOfferStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
         require(offers[id].status != Status.NotExists);
 
         offers[id].status = status;
 
-        OfferStatusChanged(offers[id].payerAddress, status);
+        OfferStatusChanged(offers[id].payerAddress, id, status);
 
         return true;
     }
 
-    function addLead(uint32 id, uint32 ownerId, uint32 trackerId, uint32 offerId, address beneficiaryAddress, string meta, string dataUrl, uint256 price) public onlyOwner returns (bool) {
-        require(leads[id].status == Status.NotExists);
+    function addAd(bytes16 id, bytes16 ownerId, bytes16 offerId, address beneficiaryAddress) public onlyOwner returns (bool) {
+        require(ads[id].status == Status.NotExists);
         require(users[ownerId].status != Status.NotExists);
-        require(trackers[trackerId].status != Status.NotExists);
         require(offers[offerId].status != Status.NotExists);
+
+        ads[id] = Ad({
+            createdAt : now,
+            ownerId : ownerId,
+            offerId : offerId,
+            beneficiaryAddress : beneficiaryAddress,
+            status : Status.Created
+        });
+
+        AdAdded(beneficiaryAddress, id);
+
+        return true;
+    }
+
+    function setAdStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
+        require(ads[id].status != Status.NotExists);
+
+        ads[id].status = status;
+
+        AdStatusChanged(ads[id].beneficiaryAddress, id, status);
+
+        return true;
+    }
+
+    function addLead(bytes16 id, bytes16 adId, bytes16 trackerId, string meta, string dataUrl, uint256 price) public onlyOwner returns (bool) {
+        require(leads[id].status == Status.NotExists);
+        require(ads[adId].status != Status.NotExists);
+        require(trackers[trackerId].status != Status.NotExists);
 
         leads[id] = Lead({
             createdAt : now,
             trackerId : trackerId,
-            ownerId : ownerId,
-            offerId : offerId,
-            beneficiaryAddress : beneficiaryAddress,
+            adId : adId,
             meta : meta,
             dataUrl : dataUrl,
             price : price,
@@ -305,12 +340,12 @@ contract HoQuPlatform {
             status : Status.Created
         });
 
-        LeadAdded(beneficiaryAddress, id, price);
+        LeadAdded(ads[adId].beneficiaryAddress, id, price);
 
         return true;
     }
 
-    function addLeadIntermediary(uint32 id, address intermediaryAddress, uint32 percent) public onlyOwner returns (bool) {
+    function addLeadIntermediary(bytes16 id, address intermediaryAddress, uint32 percent) public onlyOwner returns (bool) {
         require(leads[id].status != Status.NotExists);
 
         leads[id].intermediaryAddresses[leads[id].numOfIntermediaries] = intermediaryAddress;
@@ -320,13 +355,58 @@ contract HoQuPlatform {
         return true;
     }
 
-    function setLeadStatus(uint32 id, Status status) public onlyOwner returns (bool) {
+    function sellLead(bytes16 id) public onlyOwner returns (bool) {
+        require(leads[id].status != Status.Done && leads[id].status != Status.Declined);
+        require(leads[id].price > 0);
+
+        leads[id].status = Status.Done;
+
+        Lead lead = leads[id];
+        Ad ad = ads[lead.adId];
+        Offer offer = offers[ad.offerId];
+
+        uint256 commissionAmount = lead.price.mul(config.commission()).div(1 ether);
+        uint256 ownerAmount = lead.price.sub(commissionAmount);
+
+        token.transferFrom(offer.payerAddress, this, lead.price);
+        token.transfer(config.commissionWallet(), commissionAmount);
+
+        for (uint8 i = 0; i < lead.numOfIntermediaries; i++) {
+            address receiver = lead.intermediaryAddresses[i];
+            // Percent in micro-percents, i.e. 0.04% = 400 000 micro-percents
+            uint32 percent = lead.intermediaryPercents[i];
+            uint256 intermediaryAmount = lead.price.mul(percent).div(1e8);
+            token.transfer(receiver, intermediaryAmount);
+
+            ownerAmount = ownerAmount.sub(intermediaryAmount);
+        }
+
+        token.transfer(ad.beneficiaryAddress, ownerAmount);
+
+        LeadSold(ad.beneficiaryAddress, id, ownerAmount);
+
+        return true;
+    }
+
+    function setLeadStatus(bytes16 id, Status status) public onlyOwner returns (bool) {
         require(leads[id].status != Status.NotExists);
 
         leads[id].status = status;
 
-        LeadStatusChanged(leads[id].beneficiaryAddress, status);
+        LeadStatusChanged(ads[leads[id].adId].beneficiaryAddress, id, status);
 
         return true;
+    }
+
+    function getLeadIntermediaryAddress(bytes16 id, uint8 num) public constant returns (address) {
+        require(leads[id].status != Status.NotExists);
+
+        return leads[id].intermediaryAddresses[num];
+    }
+
+    function getLeadIntermediaryPercent(bytes16 id, uint8 num) public constant returns (uint32) {
+        require(leads[id].status != Status.NotExists);
+
+        return leads[id].intermediaryPercents[num];
     }
 }
