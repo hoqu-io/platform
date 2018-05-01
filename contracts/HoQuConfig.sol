@@ -33,4 +33,16 @@ contract HoQuConfig is Ownable {
         commissionWallet = _commissionWallet;
     }
 
+    function setCommissionWallet(address _commissionWallet) public onlyOwners {
+        require(_commissionWallet != address(0));
+        emit CommissionWalletChanged(msg.sender, _commissionWallet);
+        commissionWallet = _commissionWallet;
+    }
+
+    function setCommission(uint256 _commission) public onlyOwners {
+        require(_commission > 0);
+        emit CommissionChanged(msg.sender, _commission);
+        commission = _commission;
+    }
+
 }
