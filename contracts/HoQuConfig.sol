@@ -56,4 +56,16 @@ contract HoQuConfig is Ownable {
         emit SystemOwnerAdded(_owner);
     }
 
+    /**
+    * Set the existing system owner's ethereum address
+    *
+    * @param i an index of existing system owner
+    * @param _owner new ethereum address of the owner
+    */
+    function changeOwner(uint16 i, address _owner) public onlyOwners {
+        require(owners[i] == address(0));
+        emit SystemOwnerChanged(owners[i], _owner);
+        owners[i] = _owner;
+    }
+
 }
