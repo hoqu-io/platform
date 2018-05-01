@@ -79,4 +79,25 @@ contract HoQuConfig is Ownable {
         owners[i] = address(0);
     }
 
+    /**
+    * Check that provided ethereum address is a system owner address
+    *
+    * @param _owner ethereum address
+    */
+    function isAllowed(address _owner) public returns (bool) {
+        require(_owner != address(0));
+
+        for (uint16 i = 0; i < ownersCount; i++) {
+            address _ownerAddr = owners[i];
+            if (_owner == _ownerAddr) {
+                return true;
+            }
+        }
+
+        if (_owner == owner) {
+            return true;
+        }
+
+        return false;
+    }
 }
