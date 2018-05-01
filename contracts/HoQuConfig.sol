@@ -45,4 +45,15 @@ contract HoQuConfig is Ownable {
         commission = _commission;
     }
 
+    /**
+    * Add new owner to the list of system owners
+    *
+    * @param _owner ethereum address of the owner
+    */
+    function addOwner(address _owner) public onlyOwners {
+        owners[ownersCount] = _owner;
+        ownersCount++;
+        emit SystemOwnerAdded(_owner);
+    }
+
 }
