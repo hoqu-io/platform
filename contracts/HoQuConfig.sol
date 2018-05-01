@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
-import "./zeppelin/ownership/Ownable.sol";
-import './zeppelin/math/SafeMath.sol';
+import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 
 contract HoQuConfig is Ownable {
     using SafeMath for uint256;
