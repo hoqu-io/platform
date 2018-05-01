@@ -68,4 +68,15 @@ contract HoQuConfig is Ownable {
         owners[i] = _owner;
     }
 
+    /**
+    * Delete the existing system owner's ethereum address from the list of system owners
+    *
+    * @param i an index of existing system owner
+    */
+    function deleteOwner(uint16 i) public onlyOwners {
+        require(owners[i] != address(0));
+        emit SystemOwnerDeleted(owners[i]);
+        owners[i] = address(0);
+    }
+
 }
