@@ -32,4 +32,13 @@ contract HoQuStorageSchema {
         uint createdAt;
     }
 
+    struct Stats {
+        uint256 rating;
+        uint256 volume;
+        uint256 contragents;
+        uint256 stat1;
+        uint256 stat2;
+        Status status;
+    }
+
 }
