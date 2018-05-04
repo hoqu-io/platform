@@ -14,4 +14,15 @@ contract HoQuStorageSchema {
         Status status;
     }
 
+    struct Identification {
+        bytes16 userId;
+        bytes16 companyId;
+        string idType;
+        string name;
+        mapping (uint16 => KycReport) kycReports;
+        uint16 numOfKycReports;
+        uint createdAt;
+        Status status;
+    }
+
 }
