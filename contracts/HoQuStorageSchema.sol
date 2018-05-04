@@ -25,4 +25,11 @@ contract HoQuStorageSchema {
         Status status;
     }
 
+    struct KycReport {
+        string meta;
+        KycLevel kycLevel;
+        string dataUrl;
+        uint createdAt;
+    }
+
 }
