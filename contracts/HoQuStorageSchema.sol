@@ -66,4 +66,23 @@ contract HoQuStorageSchema {
         Status status;
     }
 
+    struct Offer {
+        bytes16 ownerId;
+        bytes16 networkId;
+        bytes16 merchantId;
+        address payerAddress;
+        string name;
+        string dataUrl;
+        uint256 cost;
+        uint createdAt;
+        Status status;
+    }
+
+    struct AdCampaign {
+        bytes16 ownerId;
+        bytes16 offerId;
+        address contractAddress;
+        uint createdAt;
+        Status status;
+    }
 }
