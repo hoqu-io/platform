@@ -41,4 +41,29 @@ contract HoQuStorageSchema {
         Status status;
     }
 
+    struct Company {
+        bytes16 ownerId;
+        string name;
+        string dataUrl;
+        uint createdAt;
+        Status status;
+    }
+
+    struct Network {
+        bytes16 ownerId;
+        string name;
+        string dataUrl;
+        uint createdAt;
+        Status status;
+    }
+
+    struct Tracker {
+        bytes16 ownerId;
+        bytes16 networkId;
+        string name;
+        string dataUrl;
+        uint createdAt;
+        Status status;
+    }
+
 }
