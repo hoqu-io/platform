@@ -282,4 +282,54 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function setOffer(bytes16 id, bytes16 ownerId, bytes16 networkId, bytes16 merchantId, address payerAddress, string name, string dataUrl, uint256 cost, Status status) public onlyOwner {
+        if (networkId.length != 0) {
+            require(networks[networkId].status != Status.NotExists);
+        }
+        if (merchantId.length != 0) {
+            require(users[merchantId].status != Status.NotExists);
+        }
+
+        if (trackers[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+            require(users[ownerId].addresses[0] != address(0));
+
+            offers[id] = Offer({
+                createdAt : now,
+                networkId : networkId,
+                merchantId: merchantId,
+                ownerId : ownerId,
+                payerAddress : payerAddress,
+                name : name,
+                dataUrl : dataUrl,
+                cost : cost,
+                status : Status.Created
+            });
+
+            emit OfferAdded(payerAddress, id, name);
+        } else {
+            if (networkId.length != 0) {
+                offers[id].networkId = networkId;
+            }
+            if (merchantId.length != 0) {
+                offers[id].merchantId = merchantId;
+            }
+            if (payerAddress != address(0)) {
+                offers[id].payerAddress = payerAddress;
+            }
+            if (bytes(name).length != 0) {
+                offers[id].name = name;
+            }
+            if (bytes(dataUrl).length != 0) {
+                offers[id].dataUrl = dataUrl;
+            }
+            if (cost != 0) {
+                offers[id].cost = cost;
+            }
+            if (status != Status.NotExists) {
+                offers[id].status = status;
+            }
+        }
+    }
+
 }
