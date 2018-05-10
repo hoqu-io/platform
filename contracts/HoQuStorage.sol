@@ -168,4 +168,29 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function addKycReport(bytes16 id, string meta, KycLevel kycLevel, string dataUrl) public onlyOwner {
+        require(ids[id].status != Status.NotExists);
+
+        ids[id].kycReports[ids[id].numOfKycReports] = KycReport({
+            createdAt : now,
+            meta : meta,
+            kycLevel : kycLevel,
+            dataUrl : dataUrl
+        });
+        ids[id].numOfKycReports++;
+
+        emit KycReportAdded(users[ids[id].userId].addresses[0], kycLevel);
+    }
+
+    function getKycReport(bytes16 id, uint16 num) public constant returns (uint, string, KycLevel, string) {
+        require(ids[id].status != Status.NotExists);
+
+        return (
+            ids[id].kycReports[num].createdAt,
+            ids[id].kycReports[num].meta,
+            ids[id].kycReports[num].kycLevel,
+            ids[id].kycReports[num].dataUrl
+        );
+    }
+
 }
