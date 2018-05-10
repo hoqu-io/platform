@@ -114,4 +114,58 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function setStats(bytes16 id, bytes16 userId, uint256 rating, uint256 volume, uint256 contragents, uint256 stat1, uint256 stat2, Status status) public onlyOwner {
+        if (stats[id].status == Status.NotExists) {
+            address ownerAddress = userId.length > 0 ? getUserAddress(userId, 0) : address(0);
+
+            stats[id] = Stats({
+                rating : rating,
+                volume : volume,
+                contragents : contragents,
+                stat1 : stat1,
+                stat2 : stat2,
+                status : Status.Created
+            });
+            if (userId.length > 0) {
+                stats[userId] = stats[id];
+            }
+
+            emit StatsChanged(ownerAddress, id, rating);
+        } else {
+            if (rating != 0) {
+                stats[id].rating = rating;
+                if (userId.length > 0) {
+                    stats[userId].rating = rating;
+                }
+            }
+            if (volume != 0) {
+                stats[id].volume = volume;
+                if (userId.length > 0) {
+                    stats[userId].volume = volume;
+                }
+            }
+            if (contragents != 0) {
+                stats[id].contragents = contragents;
+                if (userId.length > 0) {
+                    stats[userId].contragents = contragents;
+                }
+            }
+            if (stat1 != 0) {
+                stats[id].stat1 = stat1;
+                if (userId.length > 0) {
+                    stats[userId].stat1 = stat1;
+                }
+            }
+            if (stat2 != 0) {
+                stats[id].stat2 = stat2;
+                if (userId.length > 0) {
+                    stats[userId].stat2 = stat2;
+                }
+            }
+            if (status != Status.NotExists) {
+                stats[id].status = status;
+            }
+        }
+    }
+
 }
