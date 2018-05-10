@@ -38,4 +38,37 @@ contract HoQuStorage is HoQuStorageSchema {
         config = HoQuConfig(configAddress);
     }
 
+    function setConfigAddress(address configAddress) public onlyOwner {
+        config = HoQuConfig(configAddress);
+    }
+
+    function setUser(bytes16 id, string role, address ownerAddress, KycLevel kycLevel, string pubKey, Status status) public onlyOwner {
+        if (users[id].status == Status.NotExists) {
+            users[id] = User({
+                createdAt : now,
+                numOfAddresses : 1,
+                role : role,
+                kycLevel : KycLevel.Tier1,
+                pubKey : pubKey,
+                status : Status.Created
+            });
+            users[id].addresses[0] = ownerAddress;
+
+            emit UserRegistered(ownerAddress, id, role);
+        } else {
+            if (bytes(role).length != 0) {
+                users[id].role = role;
+            }
+            if (kycLevel != KycLevel.Undefined) {
+                users[id].kycLevel = kycLevel;
+            }
+            if (bytes(pubKey).length != 0) {
+                users[id].pubKey = pubKey;
+            }
+            if (status != Status.NotExists) {
+                users[id].status = status;
+            }
+        }
+    }
+
 }
