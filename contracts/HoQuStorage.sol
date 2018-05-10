@@ -247,4 +247,39 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function setTracker(bytes16 id, bytes16 ownerId, bytes16 networkId, string name, string dataUrl, Status status) public onlyOwner {
+        if (networkId.length != 0) {
+            require(networks[networkId].status != Status.NotExists);
+        }
+
+        if (trackers[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+            require(users[ownerId].addresses[0] != address(0));
+
+            trackers[id] = Tracker({
+                createdAt : now,
+                ownerId : ownerId,
+                networkId : networkId,
+                name : name,
+                dataUrl : dataUrl,
+                status : Status.Created
+            });
+
+            emit TrackerRegistered(users[ownerId].addresses[0], id, name);
+        } else {
+            if (networkId.length != 0) {
+                trackers[id].networkId = networkId;
+            }
+            if (bytes(name).length != 0) {
+                trackers[id].name = name;
+            }
+            if (bytes(dataUrl).length != 0) {
+                trackers[id].dataUrl = dataUrl;
+            }
+            if (status != Status.NotExists) {
+                trackers[id].status = status;
+            }
+        }
+    }
+
 }
