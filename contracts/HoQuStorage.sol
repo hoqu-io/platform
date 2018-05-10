@@ -220,4 +220,31 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function setNetwork(bytes16 id, bytes16 ownerId, string name, string dataUrl, Status status) public onlyOwner {
+        if (networks[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+            require(users[ownerId].addresses[0] != address(0));
+
+            networks[id] = Network({
+                createdAt : now,
+                ownerId : ownerId,
+                name : name,
+                dataUrl : dataUrl,
+                status : Status.Created
+            });
+
+            emit NetworkRegistered(users[ownerId].addresses[0], id, name);
+        } else {
+            if (bytes(name).length != 0) {
+                networks[id].name = name;
+            }
+            if (bytes(dataUrl).length != 0) {
+                networks[id].dataUrl = dataUrl;
+            }
+            if (status != Status.NotExists) {
+                networks[id].status = status;
+            }
+        }
+    }
+
 }
