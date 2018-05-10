@@ -193,4 +193,31 @@ contract HoQuStorage is HoQuStorageSchema {
         );
     }
 
+    function setCompany(bytes16 id, bytes16 ownerId, string name, string dataUrl, Status status) public onlyOwner {
+        if (companies[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+            require(users[ownerId].addresses[0] != address(0));
+
+            companies[id] = Company({
+                createdAt : now,
+                ownerId : ownerId,
+                name : name,
+                dataUrl : dataUrl,
+                status : Status.Created
+            });
+
+            emit CompanyRegistered(users[ownerId].addresses[0], id, name);
+        } else {
+            if (bytes(name).length != 0) {
+                companies[id].name = name;
+            }
+            if (bytes(dataUrl).length != 0) {
+                companies[id].dataUrl = dataUrl;
+            }
+            if (status != Status.NotExists) {
+                companies[id].status = status;
+            }
+        }
+    }
+
 }
