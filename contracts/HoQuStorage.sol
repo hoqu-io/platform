@@ -332,4 +332,30 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function setAdCampaign(bytes16 id, bytes16 ownerId, bytes16 offerId, address contractAddress, Status status) public onlyOwner {
+        if (trackers[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+            require(users[ownerId].addresses[0] != address(0));
+            require(offers[offerId].status != Status.NotExists);
+
+            address ownerAddress = getUserAddress(ownerId, 0);
+
+            adCampaigns[id] = AdCampaign({
+                createdAt : now,
+                offerId : offerId,
+                ownerId : ownerId,
+                contractAddress : contractAddress,
+                status : Status.Created
+            });
+
+            emit AdCampaignAdded(ownerAddress, id, contractAddress);
+        } else {
+            if (contractAddress != address(0)) {
+                adCampaigns[id].contractAddress = contractAddress;
+            }
+            if (status != Status.NotExists) {
+                adCampaigns[id].status = status;
+            }
+        }
+    }
 }
