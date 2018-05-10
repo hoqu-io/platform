@@ -71,4 +71,19 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function addUserAddress(bytes16 id, address ownerAddress) public onlyOwner {
+        require(users[id].status != Status.NotExists);
+
+        users[id].addresses[users[id].numOfAddresses] = ownerAddress;
+        users[id].numOfAddresses++;
+
+        emit UserAddressAdded(users[id].addresses[0], ownerAddress);
+    }
+
+    function getUserAddress(bytes16 id, uint8 num) public constant returns (address) {
+        require(users[id].status != Status.NotExists);
+
+        return users[id].addresses[num];
+    }
+
 }
