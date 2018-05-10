@@ -86,4 +86,32 @@ contract HoQuStorage is HoQuStorageSchema {
         return users[id].addresses[num];
     }
 
+    function setIdentification(bytes16 id, bytes16 userId, string idType, string name, bytes16 companyId, Status status) public onlyOwner {
+        if (ids[id].status == Status.NotExists) {
+            address ownerAddress = getUserAddress(userId, 0);
+
+            ids[id] = Identification({
+                createdAt : now,
+                userId : userId,
+                idType : idType,
+                name: name,
+                companyId : companyId,
+                numOfKycReports : 0,
+                status : Status.Created
+            });
+
+            emit IdentificationAdded(ownerAddress, id, name);
+        } else {
+            if (bytes(idType).length != 0) {
+                ids[id].idType = idType;
+            }
+            if (companyId.length != 0) {
+                ids[id].companyId = companyId;
+            }
+            if (status != Status.NotExists) {
+                ids[id].status = status;
+            }
+        }
+    }
+
 }
