@@ -78,4 +78,50 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         payerAddress = _payerAddress;
     }
 
+    function setConfigAddress(address configAddress) public onlyOwner {
+        config = HoQuConfig(configAddress);
+    }
+
+    function setTokenAddress(address tokenAddress) public onlyOwner {
+        token = ERC20(tokenAddress);
+    }
+
+    function setStorageAddress(address storageAddress) public onlyOwner {
+        store = HoQuStorage(storageAddress);
+    }
+
+    function setRaterAddress(address raterAddress) public onlyOwner {
+        rater = HoQuRaterI(raterAddress);
+    }
+
+    function setBeneficiaryAddress(address _beneficiaryAddress) public onlyOwner {
+        emit BeneficiaryAddressChanged(beneficiaryAddress, _beneficiaryAddress);
+
+        beneficiaryAddress = _beneficiaryAddress;
+    }
+
+    function setPayerAddress(address _payerAddress) public onlyOwner {
+        emit PayerAddressChanged(payerAddress, _payerAddress);
+
+        payerAddress = _payerAddress;
+    }
+
+    function addTracker(address ownerAddress, bytes16 id) public onlyOwner {
+        trackers[ownerAddress] = id;
+
+        emit TrackerAdded(ownerAddress, id);
+    }
+
+    function setStatus(HoQuStorageSchema.Status _status) public onlyOwner {
+        HoQuStorageSchema.Status _storeStatus;
+        (, _storeStatus) = store.adCampaigns(adId);
+        require(_storeStatus != HoQuStorageSchema.Status.NotExists);
+
+        store.setAdCampaign(adId, bytes16(""), bytes16(""), address(0), _status);
+
+        status = _status;
+
+        emit StatusChanged(payerAddress, _status);
+    }
+
 }
