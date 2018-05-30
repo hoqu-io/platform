@@ -124,4 +124,34 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         emit StatusChanged(payerAddress, _status);
     }
 
+    function addLead(bytes16 id, bytes16 trackerId, string meta, string dataUrl, uint256 price) public onlyOwnerOrTracker {
+        require(leads[id].status == HoQuStorageSchema.Status.NotExists);
+
+        HoQuStorageSchema.Status _trackerStatus;
+        (, _trackerStatus) = store.trackers(trackerId);
+        require(_trackerStatus != HoQuStorageSchema.Status.NotExists);
+
+        leads[id] = Lead({
+            createdAt : now,
+            trackerId : trackerId,
+            meta : meta,
+            dataUrl : dataUrl,
+            price : price,
+            numOfIntermediaries : 0,
+            status : HoQuStorageSchema.Status.Created
+        });
+
+        rater.processAddLead(offerId, trackerId, affiliateId, price);
+
+        emit LeadAdded(beneficiaryAddress, id, price);
+    }
+
+    function addLeadIntermediary(bytes16 id, address intermediaryAddress, uint32 percent) public onlyOwnerOrTracker {
+        require(leads[id].status != HoQuStorageSchema.Status.NotExists);
+
+        leads[id].intermediaryAddresses[leads[id].numOfIntermediaries] = intermediaryAddress;
+        leads[id].intermediaryPercents[leads[id].numOfIntermediaries] = percent;
+        leads[id].numOfIntermediaries++;
+    }
+
 }
