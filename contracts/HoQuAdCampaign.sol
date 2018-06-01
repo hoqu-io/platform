@@ -154,4 +154,36 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         leads[id].numOfIntermediaries++;
     }
 
+    function transactLead(bytes16 id) public onlyOwnerOrTracker {
+        require(leads[id].status != HoQuStorageSchema.Status.Done && leads[id].status != HoQuStorageSchema.Status.Declined);
+        require(leads[id].price > 0);
+
+        leads[id].status = HoQuStorageSchema.Status.Done;
+
+        Lead storage lead = leads[id];
+
+        uint256 commissionAmount = lead.price.mul(config.commission()).div(1 ether);
+        uint256 ownerAmount = lead.price.sub(commissionAmount);
+
+        token.transferFrom(payerAddress, this, lead.price);
+        token.transfer(config.commissionWallet(), commissionAmount);
+
+        for (uint8 i = 0; i < lead.numOfIntermediaries; i++) {
+            address receiver = lead.intermediaryAddresses[i];
+            // Percent in micro-percents, i.e. 0.04% = 400 000 micro-percents
+            uint32 percent = lead.intermediaryPercents[i];
+            uint256 intermediaryAmount = lead.price.mul(percent).div(1e8);
+            token.transfer(receiver, intermediaryAmount);
+
+            ownerAmount = ownerAmount.sub(intermediaryAmount);
+        }
+
+        token.transfer(beneficiaryAddress, ownerAmount);
+
+        rater.processTransactLead(offerId, lead.trackerId, affiliateId, lead.price);
+
+        emit LeadTransacted(beneficiaryAddress, id, ownerAmount);
+        emit LeadStatusChanged(beneficiaryAddress, id, HoQuStorageSchema.Status.Done);
+    }
+
 }
