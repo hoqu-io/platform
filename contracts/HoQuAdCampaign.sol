@@ -186,4 +186,23 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         emit LeadStatusChanged(beneficiaryAddress, id, HoQuStorageSchema.Status.Done);
     }
 
+    function setLeadStatus(bytes16 id, HoQuStorageSchema.Status _status) public onlyOwnerOrTracker {
+        require(leads[id].status != HoQuStorageSchema.Status.NotExists);
+
+        leads[id].status = _status;
+
+        emit LeadStatusChanged(beneficiaryAddress, id, _status);
+    }
+
+    function getLeadIntermediaryAddress(bytes16 id, uint8 num) public constant returns (address) {
+        require(leads[id].status != HoQuStorageSchema.Status.NotExists);
+
+        return leads[id].intermediaryAddresses[num];
+    }
+
+    function getLeadIntermediaryPercent(bytes16 id, uint8 num) public constant returns (uint32) {
+        require(leads[id].status != HoQuStorageSchema.Status.NotExists);
+
+        return leads[id].intermediaryPercents[num];
+    }
 }
