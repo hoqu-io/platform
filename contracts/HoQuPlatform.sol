@@ -210,4 +210,28 @@ contract HoQuPlatform {
         emit OfferStatusChanged(primaryAddress, id, status);
     }
 
+    function addAdCampaign(bytes16 id, bytes16 ownerId, bytes16 offerId, address contractAddress) public onlyOwner {
+        HoQuStorageSchema.Status _status;
+        (, _status) = store.adCampaigns(id);
+        require(_status == HoQuStorageSchema.Status.NotExists);
+        address primaryAddress = store.getUserAddress(ownerId, 0);
+
+        store.setAdCampaign(id, ownerId, offerId, contractAddress, HoQuStorageSchema.Status.Created);
+        emit AdCampaignAdded(primaryAddress, id, contractAddress);
+    }
+
+    function setAdCampaignStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
+        HoQuStorageSchema.Status _status;
+        (, _status) = store.adCampaigns(id);
+        require(_status != HoQuStorageSchema.Status.NotExists);
+
+        bytes16 _ownerId;
+        (_ownerId, ) = store.adCampaigns(id);
+        address primaryAddress = store.getUserAddress(_ownerId, 0);
+
+        store.setAdCampaign(id, bytes16(""), bytes16(""), address(0), status);
+
+        emit AdCampaignStatusChanged(primaryAddress, id, status);
+    }
+
 }
