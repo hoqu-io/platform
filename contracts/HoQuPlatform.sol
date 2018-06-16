@@ -234,4 +234,17 @@ contract HoQuPlatform {
         emit AdCampaignStatusChanged(primaryAddress, id, status);
     }
 
+    function addLead(bytes16 id, bytes16 adCampaignId, bytes16 trackerId, string meta, string dataUrl, uint256 price) public onlyOwner {
+        HoQuAdCampaignI adContract = adCampaignContract(adCampaignId);
+        adContract.addLead(id, trackerId, meta, dataUrl, price);
+
+        emit LeadAdded(address(adContract), adCampaignId, id);
+    }
+
+    function addLeadIntermediary(bytes16 id, bytes16 adCampaignId, address intermediaryAddress, uint32 percent) public onlyOwner {
+        HoQuAdCampaignI adContract = adCampaignContract(adCampaignId);
+        adContract.addLeadIntermediary(id, intermediaryAddress, percent);
+    }
+
+
 }
