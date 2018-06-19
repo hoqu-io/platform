@@ -246,5 +246,25 @@ contract HoQuPlatform {
         adContract.addLeadIntermediary(id, intermediaryAddress, percent);
     }
 
+    function transactLead(bytes16 id, bytes16 adCampaignId) public onlyOwner {
+        HoQuAdCampaignI adContract = adCampaignContract(adCampaignId);
+        adContract.transactLead(id);
 
+        emit LeadTransacted(address(adContract), adCampaignId, id);
+    }
+
+    function setLeadStatus(bytes16 id, bytes16 adCampaignId, HoQuStorageSchema.Status _status) public onlyOwner {
+        HoQuAdCampaignI adContract = adCampaignContract(adCampaignId);
+        adContract.setLeadStatus(id, _status);
+    }
+
+    function adCampaignContract(bytes16 adCampaignId) internal returns (HoQuAdCampaignI) {
+        address _contractAddress;
+        uint _createdAt;
+        HoQuStorageSchema.Status _status;
+        (, _contractAddress, _createdAt, _status) = store.adCampaigns(adCampaignId);
+        require(_status != HoQuStorageSchema.Status.NotExists);
+
+        return HoQuAdCampaignI(_contractAddress);
+    }
 }
