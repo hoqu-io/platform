@@ -3,21 +3,18 @@ pragma solidity ^0.4.23;
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 import './HoQuConfig.sol';
 import './HoQuStorageSchema.sol';
-import './HoQuStorage.sol';
+import './HoQuStorageAccessor.sol';
 import './HoQuAdCampaignI.sol';
 
-contract HoQuPlatform {
+contract HoQuPlatform is HoQuStorageAccessor {
     using SafeMath for uint256;
 
-    HoQuConfig public config;
-    HoQuStorage public store;
-
     event UserRegistered(address indexed ownerAddress, bytes16 id, string role);
-    event UserAddressAdded(address indexed ownerAddress, address additionalAddress);
-    event UserPubKeyUpdated(address indexed ownerAddress);
+    event UserAddressAdded(address indexed ownerAddress, address additionalAddress, bytes16 id);
+    event UserPubKeyUpdated(address indexed ownerAddress, bytes16 id);
     event UserStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
-    event IdentificationAdded(address indexed ownerAddress, bytes16 id, string name);
-    event KycReportAdded(address indexed ownerAddress, HoQuStorageSchema.KycLevel kycLevel);
+    event IdentificationAdded(address indexed ownerAddress, bytes16 id, bytes16 userId, string name);
+    event KycReportAdded(address indexed ownerAddress, HoQuStorageSchema.KycLevel kycLevel, bytes16 id, bytes16 userId);
     event CompanyRegistered(address indexed ownerAddress, bytes16 id, string name);
     event CompanyStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
     event NetworkRegistered(address indexed ownerAddress, bytes16 id, string name);
@@ -25,89 +22,95 @@ contract HoQuPlatform {
     event TrackerRegistered(address indexed ownerAddress, bytes16 id, string name);
     event TrackerStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
     event OfferAdded(address indexed ownerAddress, bytes16 id, string name);
+    event OfferTariffAdded(address indexed ownerAddress, bytes16 id, bytes16 tariff_id);
     event OfferStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
     event AdCampaignAdded(address indexed ownerAddress, bytes16 id, address contractAddress);
     event AdCampaignStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
     event LeadAdded(address indexed contractAddress, bytes16 adCampaignId, bytes16 id);
     event LeadTransacted(address indexed contractAddress, bytes16 adCampaignId, bytes16 id);
-
-    modifier onlyOwner() {
-        require(config.isAllowed(msg.sender));
-        _;
-    }
+    event TariffAdded(address indexed ownerAddress, bytes16 id, string name);
+    event TariffStatusChanged(address indexed ownerAddress, bytes16 id, HoQuStorageSchema.Status status);
 
     constructor(
         address configAddress,
         address storageAddress
-    ) public {
-        config = HoQuConfig(configAddress);
-        store = HoQuStorage(storageAddress);
-    }
-
-    function setConfigAddress(address configAddress) public onlyOwner {
-        config = HoQuConfig(configAddress);
-    }
-
-    function setStorageAddress(address storageAddress) public onlyOwner {
-        store = HoQuStorage(storageAddress);
-    }
+    ) HoQuStorageAccessor(
+        configAddress,
+        storageAddress
+    ) public {}
 
     function registerUser(bytes16 id, string role, address ownerAddress, string pubKey) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.users(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.User memory user = getUser(id);
+        require(user.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setUser(id, role, ownerAddress, HoQuStorageSchema.KycLevel.Tier1, pubKey, HoQuStorageSchema.Status.Created);
+        user.ownerAddress = ownerAddress;
+        user.role = role;
+        user.pubKey = pubKey;
+        setUser(id, user);
 
         emit UserRegistered(ownerAddress, id, role);
     }
 
     function addUserAddress(bytes16 id, address ownerAddress) public onlyOwner {
-        store.addUserAddress(id, ownerAddress);
+        addUserAddressInternal(id, ownerAddress);
 
-        address primaryAddress = store.getUserAddress(id, 0);
-        emit UserAddressAdded(primaryAddress, ownerAddress);
+        address primaryAddress = getUserAddress(id, 0);
+        emit UserAddressAdded(primaryAddress, ownerAddress, id);
     }
 
     function updateUserPubKey(bytes16 id, string pubKey) public onlyOwner {
-        address primaryAddress = store.getUserAddress(id, 0);
+        address primaryAddress = getUserAddress(id, 0);
 
-        store.setUser(id, "", address(0), HoQuStorageSchema.KycLevel.Undefined, pubKey, HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.User memory user = getUser(id);
+        user.pubKey = pubKey;
+        setUser(id, user);
 
-        emit UserPubKeyUpdated(primaryAddress);
+        emit UserPubKeyUpdated(primaryAddress, id);
     }
 
     function setUserStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        address primaryAddress = store.getUserAddress(id, 0);
+        address primaryAddress = getUserAddress(id, 0);
 
-        store.setUser(id, "", address(0), HoQuStorageSchema.KycLevel.Undefined, "", status);
+        HoQuStorageSchema.User memory user = getUser(id);
+        user.status = status;
+
+        setUser(id, user);
 
         emit UserStatusChanged(primaryAddress, id, status);
     }
 
-    function getUserAddress(bytes16 id, uint8 num) public constant returns (address) {
-        return store.getUserAddress(id, num);
-    }
-
     function addIdentification(bytes16 id, bytes16 userId, string idType, string name, bytes16 companyId) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.ids(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(userId, 0);
+        HoQuStorageSchema.Identification memory identification = getIdentification(id);
+        require(identification.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setIdentification(id, userId, idType, name, companyId, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(userId, 0);
 
-        emit IdentificationAdded(primaryAddress, id, name);
+        identification.userId = userId;
+        identification.idType =idType;
+        identification.name = name;
+        identification.companyId = companyId;
+
+        setIdentification(id, identification);
+
+        emit IdentificationAdded(primaryAddress, id, userId, name);
     }
 
     function addKycReport(bytes16 id, string meta, HoQuStorageSchema.KycLevel kycLevel, string dataUrl) public onlyOwner {
-        bytes16 _userId;
-        (_userId,) = store.ids(id);
-        address primaryAddress = store.getUserAddress(_userId, 0);
+        HoQuStorageSchema.Identification memory identification = getIdentification(id);
+        address primaryAddress = getUserAddress(identification.userId, 0);
 
-        store.addKycReport(id, meta, kycLevel, dataUrl);
+        HoQuStorageSchema.KycReport memory kyc;
+        kyc.meta = meta;
+        kyc.kycLevel = kycLevel;
+        kyc.dataUrl = dataUrl;
 
-        emit KycReportAdded(primaryAddress, kycLevel);
+        addKyc(id, kyc);
+
+        HoQuStorageSchema.User memory user = getUser(id);
+        user.kycLevel = kycLevel;
+        setUser(identification.userId, user);
+
+        emit KycReportAdded(primaryAddress, kycLevel, id, identification.userId);
     }
 
     function getKycReport(bytes16 id, uint16 num) public constant returns (uint, string, HoQuStorageSchema.KycLevel, string) {
@@ -115,121 +118,157 @@ contract HoQuPlatform {
     }
 
     function registerCompany(bytes16 id, bytes16 ownerId, string name, string dataUrl) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.companies(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(ownerId, 0);
+        HoQuStorageSchema.Company memory company = getCompany(id);
+        require(company.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setCompany(id, ownerId, name, dataUrl, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        company.ownerId = ownerId;
+        company.name = name;
+        company.dataUrl = dataUrl;
+
+        setCompany(id, company);
+
         emit CompanyRegistered(primaryAddress, id, name);
     }
 
     function setCompanyStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.companies(id);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.Company memory company = getCompany(id);
+        require(company.status != HoQuStorageSchema.Status.NotExists);
 
-        bytes16 _ownerId;
-        (_ownerId, ) = store.companies(id);
-        address primaryAddress = store.getUserAddress(_ownerId, 0);
+        address primaryAddress = getUserAddress(company.ownerId, 0);
 
-        store.setCompany(id, bytes16(""), "", "", status);
+        company.status = status;
+        setCompany(id, company);
 
         emit CompanyStatusChanged(primaryAddress, id, status);
     }
 
     function registerNetwork(bytes16 id, bytes16 ownerId, string name, string dataUrl) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.networks(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(ownerId, 0);
+        HoQuStorageSchema.Network memory network = getNetwork(id);
+        require(network.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setNetwork(id, ownerId, name, dataUrl, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        network.ownerId = ownerId;
+        network.name = name;
+        network.dataUrl = dataUrl;
+
+        setNetwork(id, network);
+
         emit NetworkRegistered(primaryAddress, id, name);
     }
 
     function setNetworkStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.networks(id);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.Network memory network = getNetwork(id);
+        require(network.status != HoQuStorageSchema.Status.NotExists);
 
-        bytes16 _ownerId;
-        (_ownerId, ) = store.networks(id);
-        address primaryAddress = store.getUserAddress(_ownerId, 0);
+        address primaryAddress = getUserAddress(network.ownerId, 0);
 
-        store.setNetwork(id, bytes16(""), "", "", status);
+        network.status = status;
+        setNetwork(id, network);
 
         emit NetworkStatusChanged(primaryAddress, id, status);
     }
 
     function registerTracker(bytes16 id, bytes16 ownerId, bytes16 networkId, string name, string dataUrl) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.trackers(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(ownerId, 0);
+        HoQuStorageSchema.Tracker memory tracker = getTracker(id);
+        require(tracker.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setTracker(id, ownerId, networkId, name, dataUrl, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        tracker.ownerId = ownerId;
+        tracker.networkId = networkId;
+        tracker.name = name;
+        tracker.dataUrl = dataUrl;
+
+        setTracker(id, tracker);
+
         emit TrackerRegistered(primaryAddress, id, name);
     }
 
     function setTrackerStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.trackers(id);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.Tracker memory tracker = getTracker(id);
+        require(tracker.status != HoQuStorageSchema.Status.NotExists);
 
-        bytes16 _ownerId;
-        (_ownerId, ) = store.trackers(id);
-        address primaryAddress = store.getUserAddress(_ownerId, 0);
+        address primaryAddress = getUserAddress(tracker.ownerId, 0);
 
-        store.setTracker(id, bytes16(""), bytes16(""), "", "", status);
+        tracker.status = status;
+        setTracker(id, tracker);
 
         emit TrackerStatusChanged(primaryAddress, id, status);
     }
 
     function addOffer(bytes16 id, bytes16 ownerId, bytes16 networkId, bytes16 merchantId, address payerAddress, string name, string dataUrl, uint256 cost) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.offers(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(ownerId, 0);
+        HoQuStorageSchema.Offer memory offer = getOffer(id);
+        require(offer.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setOffer(id, ownerId, networkId, merchantId, payerAddress, name, dataUrl, cost, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        offer.ownerId = ownerId;
+        offer.networkId = networkId;
+        offer.merchantId = merchantId;
+        offer.payerAddress = payerAddress;
+        offer.name = name;
+        offer.dataUrl = dataUrl;
+        offer.cost = cost;
+
+        setOffer(id, offer);
+
         emit OfferAdded(primaryAddress, id, name);
     }
 
+    function addOfferTariff(bytes16 id, bytes16 tariff_id) public onlyOwner {
+        HoQuStorageSchema.Offer memory offer = getOffer(id);
+        address ownerAddress = getUserAddress(offer.ownerId, 0);
+
+        addOfferTariffInternal(id, tariff_id);
+        emit OfferTariffAdded(ownerAddress, id, tariff_id);
+    }
+
+    function setOfferTariff(bytes16 id, uint8 num, bytes16 tariff_id) public onlyOwner {
+        HoQuStorageSchema.Offer memory offer = getOffer(id);
+        address ownerAddress = getUserAddress(offer.ownerId, 0);
+
+        setOfferTariffInternal(id, num, tariff_id);
+        emit OfferTariffAdded(ownerAddress, id, tariff_id);
+    }
+
     function setOfferStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.offers(id);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.Offer memory offer = getOffer(id);
+        require(offer.status != HoQuStorageSchema.Status.NotExists);
 
-        bytes16 _ownerId;
-        (_ownerId, ) = store.offers(id);
-        address primaryAddress = store.getUserAddress(_ownerId, 0);
+        address primaryAddress = getUserAddress(offer.ownerId, 0);
 
-        store.setOffer(id, bytes16(""), bytes16(""), bytes16(""), address(0), "", "", 0, status);
+        offer.status = status;
+        setOffer(id, offer);
 
         emit OfferStatusChanged(primaryAddress, id, status);
     }
 
     function addAdCampaign(bytes16 id, bytes16 ownerId, bytes16 offerId, address contractAddress) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.adCampaigns(id);
-        require(_status == HoQuStorageSchema.Status.NotExists);
-        address primaryAddress = store.getUserAddress(ownerId, 0);
+        HoQuStorageSchema.AdCampaign memory adCampaign = getAdCampaign(id);
+        require(adCampaign.status == HoQuStorageSchema.Status.NotExists);
 
-        store.setAdCampaign(id, ownerId, offerId, contractAddress, HoQuStorageSchema.Status.Created);
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        adCampaign.ownerId = ownerId;
+        adCampaign.offerId = offerId;
+        adCampaign.contractAddress = contractAddress;
+
+        setAdCampaign(id, adCampaign);
+
         emit AdCampaignAdded(primaryAddress, id, contractAddress);
     }
 
     function setAdCampaignStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
-        HoQuStorageSchema.Status _status;
-        (, _status) = store.adCampaigns(id);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.AdCampaign memory adCampaign = getAdCampaign(id);
+        require(adCampaign.status != HoQuStorageSchema.Status.NotExists);
 
-        bytes16 _ownerId;
-        (_ownerId, ) = store.adCampaigns(id);
-        address primaryAddress = store.getUserAddress(_ownerId, 0);
+        address primaryAddress = getUserAddress(adCampaign.ownerId, 0);
 
-        store.setAdCampaign(id, bytes16(""), bytes16(""), address(0), status);
+        adCampaign.status = status;
+        setAdCampaign(id, adCampaign);
 
         emit AdCampaignStatusChanged(primaryAddress, id, status);
     }
@@ -259,12 +298,38 @@ contract HoQuPlatform {
     }
 
     function adCampaignContract(bytes16 adCampaignId) internal returns (HoQuAdCampaignI) {
-        address _contractAddress;
-        uint _createdAt;
-        HoQuStorageSchema.Status _status;
-        (, _contractAddress, _createdAt, _status) = store.adCampaigns(adCampaignId);
-        require(_status != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.AdCampaign memory adCampaign = getAdCampaign(adCampaignId);
+        require(adCampaign.status != HoQuStorageSchema.Status.NotExists);
 
-        return HoQuAdCampaignI(_contractAddress);
+        return HoQuAdCampaignI(adCampaign.contractAddress);
+    }
+
+    function addTariff(bytes16 id, bytes16 ownerId, string name, string action, string calcMethod, uint256 price) public onlyOwner {
+        HoQuStorageSchema.Tariff memory tariff = getTariff(id);
+        require(tariff.status == HoQuStorageSchema.Status.NotExists);
+
+        address primaryAddress = getUserAddress(ownerId, 0);
+
+        tariff.ownerId = ownerId;
+        tariff.name = name;
+        tariff.action = action;
+        tariff.calcMethod = calcMethod;
+        tariff.price = price;
+
+        setTariff(id, tariff);
+
+        emit TariffAdded(primaryAddress, id, name);
+    }
+
+    function setTariffStatus(bytes16 id, HoQuStorageSchema.Status status) public onlyOwner {
+        HoQuStorageSchema.Tariff memory tariff = getTariff(id);
+        require(tariff.status != HoQuStorageSchema.Status.NotExists);
+
+        address primaryAddress = getUserAddress(tariff.ownerId, 0);
+
+        tariff.status = status;
+        setTariff(id, tariff);
+
+        emit TariffStatusChanged(primaryAddress, id, status);
     }
 }

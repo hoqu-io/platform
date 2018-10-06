@@ -5,6 +5,7 @@ contract HoQuStorageSchema {
     enum KycLevel {Undefined, Tier1, Tier2, Tier3, Tier4, Tier5}
 
     struct User {
+        address ownerAddress;
         mapping (uint8 => address) addresses;
         uint8 numOfAddresses;
         string role;
@@ -35,9 +36,9 @@ contract HoQuStorageSchema {
     struct Stats {
         uint256 rating;
         uint256 volume;
-        uint256 contragents;
-        uint256 stat1;
-        uint256 stat2;
+        uint256 members;
+        uint256 alfa;
+        uint256 beta;
         Status status;
     }
 
@@ -74,6 +75,8 @@ contract HoQuStorageSchema {
         string name;
         string dataUrl;
         uint256 cost;
+        mapping (uint8 => bytes16) tariffs;
+        uint8 numOfTariffs;
         uint createdAt;
         Status status;
     }
@@ -82,6 +85,16 @@ contract HoQuStorageSchema {
         bytes16 ownerId;
         bytes16 offerId;
         address contractAddress;
+        uint createdAt;
+        Status status;
+    }
+
+    struct Tariff {
+        bytes16 ownerId;
+        string name;
+        string action;
+        string calcMethod;
+        uint256 price;
         uint createdAt;
         Status status;
     }

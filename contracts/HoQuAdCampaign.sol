@@ -1,14 +1,14 @@
 pragma solidity ^0.4.23;
 
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
-import 'zeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import './HoQuConfig.sol';
 import './HoQuStorageSchema.sol';
-import './HoQuStorage.sol';
+import './HoQuStorageAccessor.sol';
 import './HoQuAdCampaignI.sol';
 import './HoQuRaterI.sol';
+import './HoQuTransactor.sol';
 
-contract HoQuAdCampaign is HoQuAdCampaignI {
+contract HoQuAdCampaign is HoQuAdCampaignI, HoQuStorageAccessor {
     using SafeMath for uint256;
 
     struct Lead {
@@ -23,9 +23,7 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         HoQuStorageSchema.Status status;
     }
 
-    HoQuConfig public config;
-    ERC20 public token;
-    HoQuStorage public store;
+    HoQuTransactor public transactor;
     HoQuRaterI public rater;
 
     bytes16 public adId;
@@ -41,15 +39,10 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
     event StatusChanged(address indexed payerAddress, HoQuStorageSchema.Status newStatus);
     event BeneficiaryAddressChanged(address indexed beneficiaryAddress, address indexed newBeneficiaryAddress);
     event PayerAddressChanged(address indexed payerAddress, address indexed newPayerAddress);
-    event LeadAdded(address indexed beneficiaryAddress, bytes16 id, uint256 price);
-    event LeadTransacted(address indexed beneficiaryAddress, bytes16 id, uint256 amount);
+    event LeadAdded(address indexed beneficiaryAddress, bytes16 id, uint256 price, address senderAddress);
+    event LeadTransacted(address indexed beneficiaryAddress, bytes16 id, uint256 amount, address senderAddress);
     event LeadStatusChanged(address indexed beneficiaryAddress, bytes16 id, HoQuStorageSchema.Status status);
     event TrackerAdded(address indexed ownerAddress, bytes16 id);
-
-    modifier onlyOwner() {
-        require(config.isAllowed(msg.sender));
-        _;
-    }
 
     modifier onlyOwnerOrTracker() {
         require(config.isAllowed(msg.sender) || trackers[msg.sender].length != 0);
@@ -58,7 +51,7 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
 
     constructor(
         address configAddress,
-        address tokenAddress,
+        address transactorAddress,
         address storageAddress,
         address raterAddress,
         bytes16 _adId,
@@ -66,10 +59,11 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         bytes16 _affiliateId,
         address _beneficiaryAddress,
         address _payerAddress
+    ) HoQuStorageAccessor(
+        configAddress,
+        storageAddress
     ) public {
-        config = HoQuConfig(configAddress);
-        token = ERC20(tokenAddress);
-        store = HoQuStorage(storageAddress);
+        transactor = HoQuTransactor(transactorAddress);
         rater = HoQuRaterI(raterAddress);
         adId = _adId;
         offerId = _offerId;
@@ -78,16 +72,8 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         payerAddress = _payerAddress;
     }
 
-    function setConfigAddress(address configAddress) public onlyOwner {
-        config = HoQuConfig(configAddress);
-    }
-
-    function setTokenAddress(address tokenAddress) public onlyOwner {
-        token = ERC20(tokenAddress);
-    }
-
-    function setStorageAddress(address storageAddress) public onlyOwner {
-        store = HoQuStorage(storageAddress);
+    function setTransactorAddress(address transactorAddress) public onlyOwner {
+        transactor = HoQuTransactor(transactorAddress);
     }
 
     function setRaterAddress(address raterAddress) public onlyOwner {
@@ -113,11 +99,11 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
     }
 
     function setStatus(HoQuStorageSchema.Status _status) public onlyOwner {
-        HoQuStorageSchema.Status _storeStatus;
-        (, _storeStatus) = store.adCampaigns(adId);
-        require(_storeStatus != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.AdCampaign memory adCampaign = getAdCampaign(adId);
+        require(adCampaign.status != HoQuStorageSchema.Status.NotExists);
 
-        store.setAdCampaign(adId, bytes16(""), bytes16(""), address(0), _status);
+        adCampaign.status = status;
+        setAdCampaign(adId, adCampaign);
 
         status = _status;
 
@@ -127,9 +113,8 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
     function addLead(bytes16 id, bytes16 trackerId, string meta, string dataUrl, uint256 price) public onlyOwnerOrTracker {
         require(leads[id].status == HoQuStorageSchema.Status.NotExists);
 
-        HoQuStorageSchema.Status _trackerStatus;
-        (, _trackerStatus) = store.trackers(trackerId);
-        require(_trackerStatus != HoQuStorageSchema.Status.NotExists);
+        HoQuStorageSchema.Tracker memory tracker = getTracker(trackerId);
+        require(tracker.status != HoQuStorageSchema.Status.NotExists);
 
         leads[id] = Lead({
             createdAt : now,
@@ -143,7 +128,7 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
 
         rater.processAddLead(offerId, trackerId, affiliateId, price);
 
-        emit LeadAdded(beneficiaryAddress, id, price);
+        emit LeadAdded(beneficiaryAddress, id, price, msg.sender);
     }
 
     function addLeadIntermediary(bytes16 id, address intermediaryAddress, uint32 percent) public onlyOwnerOrTracker {
@@ -165,24 +150,24 @@ contract HoQuAdCampaign is HoQuAdCampaignI {
         uint256 commissionAmount = lead.price.mul(config.commission()).div(1 ether);
         uint256 ownerAmount = lead.price.sub(commissionAmount);
 
-        token.transferFrom(payerAddress, this, lead.price);
-        token.transfer(config.commissionWallet(), commissionAmount);
+        transactor.withdraw(payerAddress, lead.price);
+        transactor.send(config.commissionWallet(), commissionAmount);
 
         for (uint8 i = 0; i < lead.numOfIntermediaries; i++) {
             address receiver = lead.intermediaryAddresses[i];
             // Percent in micro-percents, i.e. 0.04% = 400 000 micro-percents
             uint32 percent = lead.intermediaryPercents[i];
             uint256 intermediaryAmount = lead.price.mul(percent).div(1e8);
-            token.transfer(receiver, intermediaryAmount);
+            transactor.send(receiver, intermediaryAmount);
 
             ownerAmount = ownerAmount.sub(intermediaryAmount);
         }
 
-        token.transfer(beneficiaryAddress, ownerAmount);
+        transactor.send(beneficiaryAddress, ownerAmount);
 
         rater.processTransactLead(offerId, lead.trackerId, affiliateId, lead.price);
 
-        emit LeadTransacted(beneficiaryAddress, id, ownerAmount);
+        emit LeadTransacted(beneficiaryAddress, id, ownerAmount, msg.sender);
         emit LeadStatusChanged(beneficiaryAddress, id, HoQuStorageSchema.Status.Done);
     }
 

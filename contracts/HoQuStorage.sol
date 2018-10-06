@@ -17,17 +17,20 @@ contract HoQuStorage is HoQuStorageSchema {
     mapping (bytes16 => Offer) public offers;
     mapping (bytes16 => Tracker) public trackers;
     mapping (bytes16 => AdCampaign) public adCampaigns;
+    mapping (bytes16 => Tariff) public tariffs;
 
     event UserRegistered(address indexed ownerAddress, bytes16 id, string role);
-    event UserAddressAdded(address indexed ownerAddress, address additionalAddress);
+    event UserAddressAdded(address indexed ownerAddress, address additionalAddress, bytes16 id);
     event StatsChanged(address indexed ownerAddress, bytes16 id, uint256 rating);
-    event IdentificationAdded(address indexed ownerAddress, bytes16 id, string name);
+    event IdentificationAdded(address indexed ownerAddress, bytes16 id, bytes16 userId, string name);
     event KycReportAdded(address indexed ownerAddress, KycLevel kycLevel);
     event CompanyRegistered(address indexed ownerAddress, bytes16 id, string name);
     event NetworkRegistered(address indexed ownerAddress, bytes16 id, string name);
     event TrackerRegistered(address indexed ownerAddress, bytes16 id, string name);
     event OfferAdded(address indexed ownerAddress, bytes16 id, string name);
+    event OfferTariffAdded(address indexed ownerAddress, bytes16 id, bytes16 tariff_id);
     event AdCampaignAdded(address indexed ownerAddress, bytes16 id, address contractAddress);
+    event TariffAdded(address indexed ownerAddress, bytes16 id, string name);
 
     modifier onlyOwner() {
         require(config.isAllowed(msg.sender));
@@ -45,6 +48,7 @@ contract HoQuStorage is HoQuStorageSchema {
     function setUser(bytes16 id, string role, address ownerAddress, KycLevel kycLevel, string pubKey, Status status) public onlyOwner {
         if (users[id].status == Status.NotExists) {
             users[id] = User({
+                ownerAddress: ownerAddress,
                 createdAt : now,
                 numOfAddresses : 1,
                 role : role,
@@ -77,7 +81,7 @@ contract HoQuStorage is HoQuStorageSchema {
         users[id].addresses[users[id].numOfAddresses] = ownerAddress;
         users[id].numOfAddresses++;
 
-        emit UserAddressAdded(users[id].addresses[0], ownerAddress);
+        emit UserAddressAdded(users[id].addresses[0], ownerAddress, id);
     }
 
     function getUserAddress(bytes16 id, uint8 num) public constant returns (address) {
@@ -100,7 +104,7 @@ contract HoQuStorage is HoQuStorageSchema {
                 status : Status.Created
             });
 
-            emit IdentificationAdded(ownerAddress, id, name);
+            emit IdentificationAdded(ownerAddress, id, userId, name);
         } else {
             if (bytes(idType).length != 0) {
                 ids[id].idType = idType;
@@ -114,16 +118,16 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
-    function setStats(bytes16 id, bytes16 userId, uint256 rating, uint256 volume, uint256 contragents, uint256 stat1, uint256 stat2, Status status) public onlyOwner {
+    function setStats(bytes16 id, bytes16 userId, uint256 rating, uint256 volume, uint256 members, uint256 alfa, uint256 beta, Status status) public onlyOwner {
         if (stats[id].status == Status.NotExists) {
             address ownerAddress = userId.length > 0 ? getUserAddress(userId, 0) : address(0);
 
             stats[id] = Stats({
                 rating : rating,
                 volume : volume,
-                contragents : contragents,
-                stat1 : stat1,
-                stat2 : stat2,
+                members : members,
+                alfa : alfa,
+                beta : beta,
                 status : Status.Created
             });
             if (userId.length > 0) {
@@ -144,22 +148,22 @@ contract HoQuStorage is HoQuStorageSchema {
                     stats[userId].volume = volume;
                 }
             }
-            if (contragents != 0) {
-                stats[id].contragents = contragents;
+            if (members != 0) {
+                stats[id].members = members;
                 if (userId.length > 0) {
-                    stats[userId].contragents = contragents;
+                    stats[userId].members = members;
                 }
             }
-            if (stat1 != 0) {
-                stats[id].stat1 = stat1;
+            if (alfa != 0) {
+                stats[id].alfa = alfa;
                 if (userId.length > 0) {
-                    stats[userId].stat1 = stat1;
+                    stats[userId].alfa = alfa;
                 }
             }
-            if (stat2 != 0) {
-                stats[id].stat2 = stat2;
+            if (beta != 0) {
+                stats[id].beta = beta;
                 if (userId.length > 0) {
-                    stats[userId].stat2 = stat2;
+                    stats[userId].beta = beta;
                 }
             }
             if (status != Status.NotExists) {
@@ -205,7 +209,7 @@ contract HoQuStorage is HoQuStorageSchema {
                 dataUrl : dataUrl,
                 status : Status.Created
             });
-
+    
             emit CompanyRegistered(users[ownerId].addresses[0], id, name);
         } else {
             if (bytes(name).length != 0) {
@@ -246,7 +250,7 @@ contract HoQuStorage is HoQuStorageSchema {
             }
         }
     }
-
+    
     function setTracker(bytes16 id, bytes16 ownerId, bytes16 networkId, string name, string dataUrl, Status status) public onlyOwner {
         if (networkId.length != 0) {
             require(networks[networkId].status != Status.NotExists);
@@ -303,6 +307,7 @@ contract HoQuStorage is HoQuStorageSchema {
                 name : name,
                 dataUrl : dataUrl,
                 cost : cost,
+                numOfTariffs: 0,
                 status : Status.Created
             });
 
@@ -332,6 +337,34 @@ contract HoQuStorage is HoQuStorageSchema {
         }
     }
 
+    function addOfferTariff(bytes16 id, bytes16 tariff_id) public onlyOwner {
+        require(offers[id].status != Status.NotExists);
+
+        offers[id].tariffs[offers[id].numOfTariffs] = tariff_id;
+        offers[id].numOfTariffs++;
+
+        address ownerAddress = getUserAddress(offers[id].ownerId, 0);
+
+        emit OfferTariffAdded(ownerAddress, id, tariff_id);
+    }
+
+    function setOfferTariff(bytes16 id, uint8 num, bytes16 tariff_id) public onlyOwner {
+        require(offers[id].status != Status.NotExists);
+        require(offers[id].tariffs[num] != 0);
+
+        offers[id].tariffs[num] = tariff_id;
+
+        address ownerAddress = getUserAddress(offers[id].ownerId, 0);
+
+        emit OfferTariffAdded(ownerAddress, id, tariff_id);
+    }
+
+    function getOfferTariff(bytes16 id, uint8 num) public constant returns (bytes16) {
+        require(offers[id].status != Status.NotExists);
+
+        return offers[id].tariffs[num];
+    }
+
     function setAdCampaign(bytes16 id, bytes16 ownerId, bytes16 offerId, address contractAddress, Status status) public onlyOwner {
         if (trackers[id].status == Status.NotExists) {
             require(users[ownerId].status != Status.NotExists);
@@ -355,6 +388,42 @@ contract HoQuStorage is HoQuStorageSchema {
             }
             if (status != Status.NotExists) {
                 adCampaigns[id].status = status;
+            }
+        }
+    }
+
+    function setTariff(bytes16 id, bytes16 ownerId, string name, string action, string calcMethod, uint256 price, Status status) public onlyOwner {
+        if (tariffs[id].status == Status.NotExists) {
+            require(users[ownerId].status != Status.NotExists);
+
+            address ownerAddress = getUserAddress(ownerId, 0);
+
+            tariffs[id] = Tariff({
+                createdAt : now,
+                ownerId : ownerId,
+                name : name,
+                action : action,
+                calcMethod : calcMethod,
+                price : price,
+                status : Status.Created
+            });
+
+            emit TariffAdded(ownerAddress, id, name);
+        } else {
+            if (bytes(name).length != 0) {
+                tariffs[id].name = name;
+            }
+            if (bytes(action).length != 0) {
+                tariffs[id].action = action;
+            }
+            if (bytes(calcMethod).length != 0) {
+                tariffs[id].calcMethod = calcMethod;
+            }
+            if (price != 0) {
+                tariffs[id].price = price;
+            }
+            if (status != Status.NotExists) {
+                tariffs[id].status = status;
             }
         }
     }
